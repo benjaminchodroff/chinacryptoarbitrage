@@ -1,0 +1,27 @@
+[SPEND] 
+minspend=10000
+
+[LOCALBITCOINS]
+hmac_key=123456789abcdefg
+hmac_secret=123456789abcdefg123456789abcdefg
+lb_block=[ "block", "these", "accounts" ]
+
+[PAXFUL]
+API_KEY=123456789abcdefg
+API_SECRET=123456789abcdefg123456789abcdefg
+paxfulblock=[ "block", "these", "accounts" ]
+
+[OANDA]
+access_token=123456789abcdefg123456789abcdefg
+
+[COINBASE]
+
+[INFLUXDB]
+host='localhost'
+port=8086
+username=''
+password=''
+ssl=True
+verify_ssl=True
+database=cca
+

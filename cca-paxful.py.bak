@@ -1,0 +1,59 @@
+from configparser import ConfigParser
+import json
+config = ConfigParser()
+config.read("config.ini")
+
+minspend=float(config['SPEND']['minspend'])
+
+# Paxful Configuration
+API_KEY=config['PAXFUL']['API_KEY']
+API_SECRET=config['PAXFUL']['API_SECRET']
+paxfulblock=tuple(json.loads(config['PAXFUL']['paxfulblock']))
+
+# Oanda Configuration
+access_token=config['OANDA']['access_token']
+
+try:
+    from tabulate import tabulate
+    from termcolor import colored
+    from paxful.main_client import PaxfulClient
+    client = PaxfulClient(api_key=API_KEY,api_secret=API_SECRET)
+    paxful=client.offer_all(pay_method="",currency="CNY")
+
+    from oandapyV20 import API    # the client
+    from oandapyV20.contrib.factories import InstrumentsCandlesFactory
+    from oandapyV20.endpoints import pricing, accounts
+    client = API(access_token=access_token)
+    instr="USD_CNH"
+    gran="H4"
+    params = {
+        "granularity": gran,
+        "count": 1
+    }
+
+    r= accounts.AccountList()
+    account_id = (client.request(r))['accounts'][0]['id']
+    r=pricing.PricingInfo(account_id,params={"instruments": instr})
+    rv= client.request(r)
+    askprice=float(rv['prices'][0]['asks'][0]['price'])
+    bidprice=float(rv['prices'][0]['bids'][0]['price'])
+
+    import cbpro
+    public_client = cbpro.PublicClient()
+    coinbaselast=public_client.get_product_ticker(product_id='BTC-USD')
+    coinbaseprice=float(coinbaselast['price'])
+    pricetime=coinbaselast['time']
+
+    for offer in paxful['data']['offers']:
+        if((offer['require_min_past_trades']==None or offer['require_min_past_trades']<10) and offer['fiat_amount_range_max']>=minspend and offer['offer_type']=='sell' and offer['active']==True and offer['fiat_amount_range_min']<5000 and offer['offer_owner_feedback_positive']>20 and offer['offer_owner_username'] not in paxfulblock):
+            paxfulprice=round(float(offer['fiat_price_per_btc']),2)
+            paxfulpriceusd=round(paxfulprice/bidprice,2)
+            coinbasepricermb=round(coinbaseprice*askprice*1.005,2)
+            profit=round(coinbasepricermb-paxfulprice,2)
+            percentprofit=round(profit/coinbasepricermb*100,2)
+            table = [["Time",pricetime],["USD-RMB ask",askprice],["USD-RMB bid",bidprice],["Coinbase Price USD",coinbaseprice],["Coinbase Price RMB",coinbasepricermb],["Paxful Price RMB",paxfulprice],["Paxful Price USD",paxfulpriceusd],["Profit RMB",colored(profit,'red' if profit<0 else 'green')],["Percent Profit",colored(percentprofit,'red' if percentprofit<0 else 'green')],["Offer",offer['offer_link']],["Username",offer['offer_owner_username']],["Min RMB",offer['fiat_amount_range_min']],["Max RMB",offer['fiat_amount_range_max']]]
+            print(tabulate(table,tablefmt="fancy_grid"))
+            break
+except Exception as e:
+    print("ERROR",e)
+
